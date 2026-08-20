@@ -71,6 +71,9 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
+        // Référence vers la sous-collection Firestore correcte
+        const charsRef = db.collection("tables").doc("COF2-Splash").collection("characters");
+
         // --- Icônes ---
         const IconBase = ({ size = 24, color = "currentColor", strokeWidth = 2, className = "", children, ...props }) => (
             <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>
@@ -185,7 +188,7 @@
                                     <img src={char.avatar} alt={char.name} className="w-12 h-12 rounded-full object-cover border border-gray-600 flex-shrink-0" />
                                 ) : (
                                     <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-xs text-white/50 flex-shrink-0 border border-gray-600" style={{ backgroundColor: char.color }}>
-                                        {char.name.substring(0, 2).toUpperCase()}
+                                        {char.name ? char.name.substring(0, 2).toUpperCase() : "??"}
                                     </div>
                                 )}
                                 <div className="min-w-0 flex-1">
@@ -260,7 +263,7 @@
                                 <img src={char.avatar} alt={char.name} className="w-24 h-24 mx-auto rounded-full object-cover shadow-2xl border-4 border-gray-800 mb-4" />
                             ) : (
                                 <div className="w-24 h-24 mx-auto rounded-full flex items-center justify-center text-3xl font-bold mb-4 shadow-2xl border-4 border-gray-800 relative" style={{ backgroundColor: char.color, color: 'rgba(0,0,0,0.4)' }}>
-                                    {char.name.substring(0, 2).toUpperCase()}
+                                    {char.name ? char.name.substring(0, 2).toUpperCase() : "??"}
                                 </div>
                             )}
                             <h1 className="text-3xl font-bold text-white">{char.name}</h1>
@@ -375,24 +378,23 @@
                             setAvatarsList([{ name: "Aucun avatar", url: "" }, ...imageFiles]);
                         }
                     } catch (err) {
-                        console.error("Impossible de récupérer la liste des avatars depuis GitHub :", err);
+                        console.error("Impossible de récupérer la liste des avatars :", err);
                     }
                 };
 
                 fetchAvatarsFromGitHub();
             }, []);
 
-            // Écoute en temps réel de Firestore
+            // Écoute en temps réel de la sous-collection Firestore tables/COF2-Splash/characters
             useEffect(() => {
-                const unsubscribe = db.collection("characters")
-                    .onSnapshot((snapshot) => {
-                        const chars = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        setCharacters(chars);
-                        setLoading(false);
-                    }, (error) => {
-                        console.error("Erreur Firestore :", error);
-                        setLoading(false);
-                    });
+                const unsubscribe = charsRef.onSnapshot((snapshot) => {
+                    const chars = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setCharacters(chars);
+                    setLoading(false);
+                }, (error) => {
+                    console.error("Erreur Firestore :", error);
+                    setLoading(false);
+                });
 
                 return () => unsubscribe();
             }, []);
@@ -400,7 +402,7 @@
             const handleSave = async (data) => {
                 setIsSaving(true);
                 try {
-                    await db.collection("characters").doc(data.id).set(data, { merge: true });
+                    await charsRef.doc(data.id).set(data, { merge: true });
                     setView('list');
                 } catch (err) {
                     console.error("Erreur de sauvegarde :", err);
@@ -411,7 +413,7 @@
 
             const handleDelete = async (id) => {
                 try {
-                    await db.collection("characters").doc(id).delete();
+                    await charsRef.doc(id).delete();
                     if (selectedCharId === id) setSelectedCharId(null);
                     setView('list');
                 } catch (err) {
@@ -422,7 +424,7 @@
             const handleUpdateHP = async (char, delta) => {
                 const newHp = Math.max(0, Math.min(char.hpMax, char.hpCurrent + delta));
                 try {
-                    await db.collection("characters").doc(char.id).update({ hpCurrent: newHp });
+                    await charsRef.doc(char.id).update({ hpCurrent: newHp });
                 } catch (err) {
                     console.error("Erreur mise à jour PV :", err);
                 }
@@ -432,7 +434,7 @@
                 const currentVal = char[field] || 0;
                 const newVal = Math.max(0, currentVal + delta);
                 try {
-                    await db.collection("characters").doc(char.id).update({ [field]: newVal });
+                    await charsRef.doc(char.id).update({ [field]: newVal });
                 } catch (err) {
                     console.error("Erreur mise à jour stat :", err);
                 }
