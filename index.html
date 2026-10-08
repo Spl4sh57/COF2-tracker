@@ -71,7 +71,6 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
-        // Fonction utilitaire pour générer un code de table à 5 caractères uniques
         const generateTableCode = () => {
             const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
             let code = "";
@@ -677,7 +676,6 @@
             const handleDeleteTable = async () => {
                 if (!tableCode) return;
                 try {
-                    // 1. Suppression de tous les personnages sous la table
                     const charsSnapshot = await db.collection("tables").doc(tableCode).collection("characters").get();
                     const batch = db.batch();
                     charsSnapshot.docs.forEach(doc => {
@@ -685,10 +683,8 @@
                     });
                     await batch.commit();
 
-                    // 2. Suppression de la fiche parent de la table
                     await db.collection("tables").doc(tableCode).delete();
 
-                    // 3. Retrait de l'historique et retour accueil
                     handleRemoveRecent(tableCode);
                     handleLeaveTable();
                     setView('list');
