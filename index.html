@@ -93,6 +93,7 @@
             Droplet: (p) => <IconBase {...p}><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" /></IconBase>,
             Dices: (p) => <IconBase {...p}><rect x="2" y="2" width="20" height="20" rx="5" ry="5" /><circle cx="12" cy="12" r="2" /><circle cx="6" cy="6" r="2" /><circle cx="18" cy="18" r="2" /></IconBase>,
             Layers: (p) => <IconBase {...p}><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></IconBase>,
+            AlertTriangle: (p) => <IconBase {...p}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></IconBase>
         };
 
         const PEUPLES = ["Demi-elfe", "Demi-orc", "Elfe haut", "Elfe Sylvain", "Gnome", "Halfelin", "Humain", "Nain", "Mage"];
@@ -100,14 +101,15 @@
 
         // --- Composant : Modale de changement / création de table ---
         const TableModal = ({ currentTable, currentTableName, onSelectTable, onClose }) => {
-            const [code, setCode] = useState('');
-            const [name, setName] = useState('');
+            const [code, setCode] = useState(currentTable || '');
+            const [name, setName] = useState(currentTableName || '');
 
             const handleSubmit = (e) => {
                 e.preventDefault();
                 const cleanCode = code.trim().toUpperCase();
                 if (!cleanCode) return;
-                onSelectTable(cleanCode, name.trim() || `Table ${cleanCode}`);
+                const cleanName = name.trim() || `Table ${cleanCode}`;
+                onSelectTable(cleanCode, cleanName);
             };
 
             return (
@@ -115,20 +117,16 @@
                     <div className="bg-gray-800 border border-gray-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                <Icons.Layers className="text-blue-500" /> Changer de table
+                                <Icons.Layers className="text-blue-500" /> Gestion de la table
                             </h3>
                             <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded-full"><Icons.X size={20}/></button>
                         </div>
-                        <div className="mb-4 p-3 bg-gray-900 rounded-xl border border-gray-700">
-                            <span className="text-xs text-gray-400 block">Table actuelle :</span>
-                            <span className="font-bold text-white">{currentTableName}</span> <span className="font-mono text-xs text-blue-400">({currentTable})</span>
-                        </div>
-                        <form onSubmit={handleSubmit} className="space-y-3">
+                        <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-xs text-gray-400 mb-1">Code de la table (ex: SPL4SH, CALICE)</label>
+                                <label className="block text-xs text-gray-400 mb-1">Code de la table (ex: SPL4SH)</label>
                                 <input 
                                     type="text" 
-                                    placeholder="Ex: CALICE" 
+                                    placeholder="Ex: SPL4SH" 
                                     value={code} 
                                     onChange={(e) => setCode(e.target.value.toUpperCase())}
                                     className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white uppercase font-mono text-sm focus:border-blue-500 focus:outline-none"
@@ -136,7 +134,7 @@
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs text-gray-400 mb-1">Nom de la table (optionnel)</label>
+                                <label className="block text-xs text-gray-400 mb-1">Nom de la table (ex: Calice)</label>
                                 <input 
                                     type="text" 
                                     placeholder="Ex: Calice" 
@@ -145,7 +143,7 @@
                                     className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white text-sm focus:border-blue-500 focus:outline-none"
                                 />
                             </div>
-                            <button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95 mt-2">
+                            <button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95">
                                 Valider et charger
                             </button>
                         </form>
@@ -154,7 +152,7 @@
             );
         };
 
-        // --- Composant : Formulaire ---
+        // --- Composant : Formulaire Personnage ---
         const CharacterForm = ({ character, avatarsList, onSave, onCancel, isSaving }) => {
             const [formData, setFormData] = useState(character || {
                 id: null, name: '', race: PEUPLES[6], class: PROFILS[6], sex: 'M', color: '#3b82f6', 
@@ -346,13 +344,61 @@
         };
 
         // --- Composant : Vue MJ ---
-        const DMView = ({ characters, onClose }) => {
+        const DMView = ({ characters, tableName, currentTable, onDeleteTable, onClose }) => {
+            const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+            const [isDeleting, setIsDeleting] = useState(false);
+
+            const handleDeleteTable = async () => {
+                setIsDeleting(true);
+                await onDeleteTable();
+            };
+
             return (
                 <div className="fixed inset-0 bg-black z-40 overflow-y-auto animate-fade-in">
-                    <div className="sticky top-0 bg-gray-900/90 backdrop-blur-sm border-b border-gray-800 p-4 flex items-center z-50">
-                        <button onClick={onClose} className="text-white flex items-center gap-1 pr-4 py-2"><Icons.ChevronLeft /> Retour</button>
-                        <h2 className="text-xl font-bold text-white ml-4">Vue MJ</h2>
+                    {showDeleteConfirm && (
+                        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+                            <div className="bg-gray-800 border border-red-600/50 p-6 rounded-2xl shadow-2xl max-w-sm w-full text-center">
+                                <div className="w-16 h-16 bg-red-900/30 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/30">
+                                    <Icons.AlertTriangle size={32} />
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-2">Supprimer la table ?</h3>
+                                <p className="text-gray-300 text-sm mb-2">
+                                    Vous allez supprimer la table <strong className="text-white">{tableName}</strong> (<span className="font-mono text-red-400">{currentTable}</span>).
+                                </p>
+                                <p className="text-xs text-red-400 font-semibold mb-6 bg-red-950/40 p-2 rounded-lg border border-red-800/40">
+                                    Attention : Tous les personnages et la table seront définitivement effacés de la base de données.
+                                </p>
+                                <div className="flex gap-3">
+                                    <button 
+                                        onClick={() => setShowDeleteConfirm(false)} 
+                                        disabled={isDeleting}
+                                        className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors"
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button 
+                                        onClick={handleDeleteTable} 
+                                        disabled={isDeleting}
+                                        className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold transition-colors flex justify-center items-center gap-2"
+                                    >
+                                        {isDeleting ? <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"/> : "Confirmer"}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="sticky top-0 bg-gray-900/90 backdrop-blur-sm border-b border-gray-800 p-4 flex items-center justify-between z-50">
+                        <button onClick={onClose} className="text-white flex items-center gap-1 py-2"><Icons.ChevronLeft /> Retour</button>
+                        <h2 className="text-xl font-bold text-white">Vue MJ</h2>
+                        <button 
+                            onClick={() => setShowDeleteConfirm(true)}
+                            className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/30 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors"
+                        >
+                            <Icons.Trash2 size={15} /> Supprimer la table
+                        </button>
                     </div>
+
                     <div className="p-4 pb-24 max-w-4xl mx-auto">
                         <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-700">
                             <table className="w-full text-left text-gray-300">
@@ -414,18 +460,22 @@
 
             const selectedChar = characters.find(c => c.id === selectedCharId);
 
-            // Charger les infos de la table depuis Firestore
+            // Synchroniser les informations du document de la table depuis Firestore
             useEffect(() => {
                 if (!currentTable) return;
-                db.collection("tables").doc(currentTable).get().then(doc => {
-                    if (doc.exists && doc.data().name) {
+                const unsubscribe = db.collection("tables").doc(currentTable).onSnapshot((doc) => {
+                    if (doc.exists && doc.data() && doc.data().name) {
                         setTableName(doc.data().name);
                     } else {
-                        setTableName(`Table ${currentTable}`);
+                        // S'il n'y a pas de nom défini en BDD, on met Calice par défaut pour SPL4SH ou "Table [CODE]"
+                        setTableName(currentTable === "SPL4SH" ? "Calice" : `Table ${currentTable}`);
                     }
-                }).catch(() => {
+                }, (err) => {
+                    console.error("Erreur lecture table :", err);
                     setTableName(`Table ${currentTable}`);
                 });
+
+                return () => unsubscribe();
             }, [currentTable]);
 
             const charsRef = useMemo(() => {
@@ -434,25 +484,47 @@
 
             const handleSelectTable = async (tableCode, customName) => {
                 const upperCode = tableCode.toUpperCase();
-                
-                // Sauvegarder ou initialiser le document de la table dans Firestore
+                const nameToSave = customName || (upperCode === "SPL4SH" ? "Calice" : `Table ${upperCode}`);
+
                 try {
                     await db.collection("tables").doc(upperCode).set({
-                        name: customName,
+                        name: nameToSave,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     }, { merge: true });
                 } catch (err) {
-                    console.error("Erreur mise à jour nom table :", err);
+                    console.error("Erreur enregistrement nom table :", err);
                 }
 
                 setCurrentTable(upperCode);
-                setTableName(customName);
+                setTableName(nameToSave);
                 localStorage.setItem('cof2_current_table', upperCode);
-                localStorage.setItem(`cof2_name_${upperCode}`, customName);
                 
                 const newUrl = `${window.location.pathname}?table=${upperCode}`;
                 window.history.pushState({ path: newUrl }, '', newUrl);
                 setShowTableModal(false);
+            };
+
+            // Suppression complète de la table et de sa sous-collection dans Firestore
+            const handleDeleteTable = async () => {
+                try {
+                    // 1. Supprimer tous les personnages de la sous-collection
+                    const snapshot = await charsRef.get();
+                    const batch = db.batch();
+                    snapshot.docs.forEach(doc => {
+                        batch.delete(doc.ref);
+                    });
+                    await batch.commit();
+
+                    // 2. Supprimer le document principal de la table
+                    await db.collection("tables").doc(currentTable).delete();
+
+                    // 3. Réinitialiser vers la table par défaut SPL4SH
+                    handleSelectTable("SPL4SH", "Calice");
+                    setView('list');
+                } catch (err) {
+                    console.error("Erreur suppression table :", err);
+                    alert("Erreur lors de la suppression de la table.");
+                }
             };
 
             useEffect(() => {
@@ -564,7 +636,7 @@
                             <button 
                                 onClick={() => setShowTableModal(true)}
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs text-gray-300 transition-colors shadow"
-                                title="Changer ou créer une table"
+                                title="Changer de table"
                             >
                                 <Icons.Layers size={14} className="text-blue-400" /> 
                                 <span className="font-bold text-white">{tableName}</span> 
@@ -591,7 +663,7 @@
                         {characters.length === 0 ? (
                             <div className="text-center py-20 text-gray-500">
                                 <Icons.User size={48} className="mx-auto mb-3 opacity-30" />
-                                <p className="text-lg">Aucun personnage enregistré dans la table <span className="font-mono text-blue-400">{tableName}</span>.</p>
+                                <p className="text-lg">Aucun personnage enregistré dans la table <span className="font-bold text-blue-400">{tableName}</span> (<span className="font-mono">{currentTable}</span>).</p>
                                 <p className="text-sm text-gray-600 mt-1">Clique sur « Nouveau » pour commencer.</p>
                             </div>
                         ) : (
@@ -640,6 +712,9 @@
                     {view === 'dm' && (
                         <DMView
                             characters={characters}
+                            tableName={tableName}
+                            currentTable={currentTable}
+                            onDeleteTable={handleDeleteTable}
                             onClose={() => setView('list')}
                         />
                     )}
