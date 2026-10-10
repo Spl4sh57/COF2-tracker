@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Suivi COF2 (Multi-Tables)</title>
+    <title>Suivi COF2</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -51,9 +51,6 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // ==========================================
-        // CONFIGURATION GITHUB & FIREBASE
-        // ==========================================
         const GITHUB_REPO = "spl4sh57/COF2-tracker";
 
         const firebaseConfig = {
@@ -99,17 +96,32 @@
         const PEUPLES = ["Demi-elfe", "Demi-orc", "Elfe haut", "Elfe Sylvain", "Gnome", "Halfelin", "Humain", "Nain", "Mage"];
         const PROFILS = ["Arquebusier", "Barde", "Rôdeur", "Voleur", "Barbare", "Chevalier", "Guerrier", "Ensorceleur", "Forgesort", "Magicien", "Sorcier", "Druide", "Moine", "Prêtre"];
 
-        // --- Composant : Modale de changement / création de table ---
-        const TableModal = ({ currentTable, currentTableName, onSelectTable, onClose }) => {
+        // --- Composant : Modale de changement de table ---
+        const TableModal = ({ currentTable, onSelectTable, onClose }) => {
             const [code, setCode] = useState(currentTable || '');
-            const [name, setName] = useState(currentTableName || '');
+            const [checking, setChecking] = useState(false);
+            const [pendingCode, setPendingCode] = useState(null);
 
-            const handleSubmit = (e) => {
+            const handleSubmit = async (e) => {
                 e.preventDefault();
                 const cleanCode = code.trim().toUpperCase();
                 if (!cleanCode) return;
-                const cleanName = name.trim() || `Table ${cleanCode}`;
-                onSelectTable(cleanCode, cleanName);
+
+                setChecking(true);
+                try {
+                    // Vérifier si la table contient des personnages
+                    const snapshot = await db.collection("tables").doc(cleanCode).collection("characters").get();
+                    if (snapshot.empty && cleanCode !== "SPL4SH") {
+                        // Code inconnu / nouvelle table potentielle
+                        setPendingCode(cleanCode);
+                        setChecking(false);
+                    } else {
+                        onSelectTable(cleanCode);
+                    }
+                } catch (err) {
+                    console.error("Erreur vérification table :", err);
+                    onSelectTable(cleanCode);
+                }
             };
 
             return (
@@ -117,36 +129,39 @@
                     <div className="bg-gray-800 border border-gray-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                <Icons.Layers className="text-blue-500" /> Gestion de la table
+                                <Icons.Layers className="text-blue-500" /> Changer de table
                             </h3>
                             <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded-full"><Icons.X size={20}/></button>
                         </div>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div>
-                                <label className="block text-xs text-gray-400 mb-1">Code de la table (ex: SPL4SH)</label>
-                                <input 
-                                    type="text" 
-                                    placeholder="Ex: SPL4SH" 
-                                    value={code} 
-                                    onChange={(e) => setCode(e.target.value.toUpperCase())}
-                                    className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white uppercase font-mono text-sm focus:border-blue-500 focus:outline-none"
-                                    required
-                                />
+
+                        {pendingCode ? (
+                            <div className="space-y-4 animate-fade-in text-center">
+                                <div className="p-3 bg-yellow-900/30 border border-yellow-700/50 rounded-xl text-yellow-300 text-sm">
+                                    Code <strong className="font-mono">{pendingCode}</strong> inconnu ou vide. Veux-tu créer une nouvelle table avec ce code ?
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setPendingCode(null)} className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium text-white text-sm">Annuler</button>
+                                    <button onClick={() => onSelectTable(pendingCode)} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-white text-sm">Créer</button>
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-xs text-gray-400 mb-1">Nom de la table (ex: Calice)</label>
-                                <input 
-                                    type="text" 
-                                    placeholder="Ex: Calice" 
-                                    value={name} 
-                                    onChange={(e) => setName(e.target.value)}
-                                    className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white text-sm focus:border-blue-500 focus:outline-none"
-                                />
-                            </div>
-                            <button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95">
-                                Valider et charger
-                            </button>
-                        </form>
+                        ) : (
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div>
+                                    <label className="block text-xs text-gray-400 mb-1">Code de la table (ex: SPL4SH)</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Ex: SPL4SH" 
+                                        value={code} 
+                                        onChange={(e) => setCode(e.target.value.toUpperCase())}
+                                        className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white uppercase font-mono text-sm focus:border-blue-500 focus:outline-none"
+                                        required
+                                    />
+                                </div>
+                                <button type="submit" disabled={checking} className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95 flex justify-center items-center">
+                                    {checking ? <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"/> : "Valider et charger"}
+                                </button>
+                            </form>
+                        )}
                     </div>
                 </div>
             );
@@ -344,7 +359,7 @@
         };
 
         // --- Composant : Vue MJ ---
-        const DMView = ({ characters, tableName, currentTable, onDeleteTable, onClose }) => {
+        const DMView = ({ characters, currentTable, onDeleteTable, onClose }) => {
             const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
             const [isDeleting, setIsDeleting] = useState(false);
 
@@ -363,7 +378,7 @@
                                 </div>
                                 <h3 className="text-xl font-bold text-white mb-2">Supprimer la table ?</h3>
                                 <p className="text-gray-300 text-sm mb-2">
-                                    Vous allez supprimer la table <strong className="text-white">{tableName}</strong> (<span className="font-mono text-red-400">{currentTable}</span>).
+                                    Vous allez supprimer la table <span className="font-mono text-red-400 font-bold">{currentTable}</span>.
                                 </p>
                                 <p className="text-xs text-red-400 font-semibold mb-6 bg-red-950/40 p-2 rounded-lg border border-red-800/40">
                                     Attention : Tous les personnages de cette table seront définitivement effacés.
@@ -449,12 +464,6 @@
                 return localStorage.getItem('cof2_current_table') || "SPL4SH";
             });
 
-            // Charger le nom depuis localStorage directement pour éviter les blocages de règles Firestore
-            const [tableName, setTableName] = useState(() => {
-                const table = new URLSearchParams(window.location.search).get('table') || localStorage.getItem('cof2_current_table') || "SPL4SH";
-                return localStorage.getItem(`cof2_table_name_${table.toUpperCase()}`) || (table.toUpperCase() === "SPL4SH" ? "Calice" : `Table ${table}`);
-            });
-
             const [characters, setCharacters] = useState([]);
             const [avatarsList, setAvatarsList] = useState([{ name: "Aucun avatar", url: "" }]);
             const [loading, setLoading] = useState(true);
@@ -469,21 +478,16 @@
                 return db.collection("tables").doc(currentTable).collection("characters");
             }, [currentTable]);
 
-            const handleSelectTable = (tableCode, customName) => {
+            const handleSelectTable = (tableCode) => {
                 const upperCode = tableCode.toUpperCase();
-                const nameToSave = customName || (upperCode === "SPL4SH" ? "Calice" : `Table ${upperCode}`);
-
                 setCurrentTable(upperCode);
-                setTableName(nameToSave);
                 localStorage.setItem('cof2_current_table', upperCode);
-                localStorage.setItem(`cof2_table_name_${upperCode}`, nameToSave);
                 
                 const newUrl = `${window.location.pathname}?table=${upperCode}`;
                 window.history.pushState({ path: newUrl }, '', newUrl);
                 setShowTableModal(false);
             };
 
-            // Suppression propre des personnages de la sous-collection active
             const handleDeleteTable = async () => {
                 try {
                     const snapshot = await charsRef.get();
@@ -493,11 +497,7 @@
                     });
                     await batch.commit();
 
-                    // Nettoyer le stockage local de cette table
-                    localStorage.removeItem(`cof2_table_name_${currentTable}`);
-
-                    // Basculer par défaut sur SPL4SH
-                    handleSelectTable("SPL4SH", "Calice");
+                    handleSelectTable("SPL4SH");
                     setView('list');
                 } catch (err) {
                     console.error("Erreur suppression table :", err);
@@ -613,12 +613,11 @@
                             </h1>
                             <button 
                                 onClick={() => setShowTableModal(true)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs text-gray-300 transition-colors shadow"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs font-mono text-blue-400 transition-colors shadow"
                                 title="Changer de table"
                             >
-                                <Icons.Layers size={14} className="text-blue-400" /> 
-                                <span className="font-bold text-white">{tableName}</span> 
-                                <span className="font-mono text-gray-400">({currentTable})</span>
+                                <Icons.Layers size={14} /> 
+                                <span className="font-bold text-white">{currentTable}</span>
                             </button>
                         </div>
                         <div className="flex gap-2">
@@ -637,11 +636,11 @@
                         </div>
                     </header>
 
-                    <main className="p-4 max-w-5xl mx-auto characters-container">
+                    <main className="p-4 max-w-5xl mx-auto">
                         {characters.length === 0 ? (
                             <div className="text-center py-20 text-gray-500">
-                                <Icons.User size5={48} className="mx-auto mb-3 opacity-30" />
-                                <p className="text-lg">Aucun personnage enregistré dans la table <span className="font-bold text-blue-400">{tableName}</span> (<span className="font-mono">{currentTable}</span>).</p>
+                                <Icons.User size={48} className="mx-auto mb-3 opacity-30" />
+                                <p className="text-lg">Aucun personnage enregistré dans la table <span className="font-mono text-blue-400">{currentTable}</span>.</p>
                                 <p className="text-sm text-gray-600 mt-1">Clique sur « Nouveau » pour commencer.</p>
                             </div>
                         ) : (
@@ -661,7 +660,6 @@
                     {showTableModal && (
                         <TableModal
                             currentTable={currentTable}
-                    currentTableName={tableName}
                             onSelectTable={handleSelectTable}
                             onClose={() => setShowTableModal(false)}
                         />
@@ -690,7 +688,6 @@
                     {view === 'dm' && (
                         <DMView
                             characters={characters}
-                            tableName={tableName}
                             currentTable={currentTable}
                             onDeleteTable={handleDeleteTable}
                             onClose={() => setView('list')}
@@ -700,8 +697,11 @@
             );
         };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        const root = ReactDOM.createRoot(getElementById ? document.getElementById('root') : null); // Sécurité
+        const container = document.getElementById('root');
+        if (container) {
+            ReactDOM.createRoot(container).render(<App />);
+        }
     </script>
 </body>
 </html>
