@@ -72,7 +72,35 @@
         const db = firebase.firestore();
 
         // Référence vers la sous-collection Firestore correcte
-        const charsRef = db.collection("tables").doc("COF2-Splash").collection("characters");
+        // --- FONCTION DE MIGRATION TEMPORAIRE ---
+        const migrateTableData = async () => {
+            try {
+                const oldRef = db.collection("tables").doc("COF2-Splash").collection("characters");
+                const newRef = db.collection("tables").doc("SPL4SH").collection("characters");
+                
+                const snapshot = await oldRef.get();
+                if (!snapshot.empty) {
+                    const batch = db.batch();
+                    snapshot.docs.forEach(docSnap => {
+                        const data = docSnap.data();
+                        const newDocRef = newRef.doc(docSnap.id);
+                        batch.set(newDocRef, data);
+                    });
+                    await batch.commit();
+                    console.log("Migration réussie : tous les personnages ont été copiés de COF2-Splash vers SPL4SH !");
+                } else {
+                    console.log("Aucun personnage trouvé dans COF2-Splash à migrer.");
+                }
+            } catch (err) {
+                console.error("Erreur lors de la migration :", err);
+            }
+        };
+        
+        // Exécution de la migration au chargement
+        migrateTableData();
+        
+        // Référence définitive vers la nouvelle table
+        const charsRef = db.collection("tables").doc("SPL4SH").collection("characters");
 
         // --- Icônes ---
         const IconBase = ({ size = 24, color = "currentColor", strokeWidth = 2, className = "", children, ...props }) => (
