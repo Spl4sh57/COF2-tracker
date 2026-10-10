@@ -109,10 +109,8 @@
 
                 setChecking(true);
                 try {
-                    // Vérifier si la table contient des personnages
                     const snapshot = await db.collection("tables").doc(cleanCode).collection("characters").get();
                     if (snapshot.empty && cleanCode !== "SPL4SH") {
-                        // Code inconnu / nouvelle table potentielle
                         setPendingCode(cleanCode);
                         setChecking(false);
                     } else {
@@ -622,10 +620,10 @@
                         </div>
                         <div className="flex gap-2">
                             <button
-                                onClick={() => setView(view === 'dm' ? 'list' : 'dm')}
+                                onClick={() => setView('dm')}
                                 className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg border border-gray-700 text-sm font-medium transition-colors"
                             >
-                                {view === 'dm' ? 'Vue Joueurs' : 'Vue MJ'}
+                                Vue MJ
                             </button>
                             <button
                                 onClick={() => { setSelectedCharId(null); setView('form'); }}
@@ -697,7 +695,6 @@
             );
         };
 
-        const root = ReactDOM.createRoot(getElementById ? document.getElementById('root') : null); // Sécurité
         const container = document.getElementById('root');
         if (container) {
             ReactDOM.createRoot(container).render(<App />);
