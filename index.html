@@ -366,7 +366,7 @@
                                     Vous allez supprimer la table <strong className="text-white">{tableName}</strong> (<span className="font-mono text-red-400">{currentTable}</span>).
                                 </p>
                                 <p className="text-xs text-red-400 font-semibold mb-6 bg-red-950/40 p-2 rounded-lg border border-red-800/40">
-                                    Attention : Tous les personnages et la table seront définitivement effacés de la base de données.
+                                    Attention : Tous les personnages de cette table seront définitivement effacés.
                                 </p>
                                 <div className="flex gap-3">
                                     <button 
@@ -449,7 +449,12 @@
                 return localStorage.getItem('cof2_current_table') || "SPL4SH";
             });
 
-            const [tableName, setTableName] = useState('Calice');
+            // Charger le nom depuis localStorage directement pour éviter les blocages de règles Firestore
+            const [tableName, setTableName] = useState(() => {
+                const table = new URLSearchParams(window.location.search).get('table') || localStorage.getItem('cof2_current_table') || "SPL4SH";
+                return localStorage.getItem(`cof2_table_name_${table.toUpperCase()}`) || (table.toUpperCase() === "SPL4SH" ? "Calice" : `Table ${table}`);
+            });
+
             const [characters, setCharacters] = useState([]);
             const [avatarsList, setAvatarsList] = useState([{ name: "Aucun avatar", url: "" }]);
             const [loading, setLoading] = useState(true);
@@ -460,54 +465,27 @@
 
             const selectedChar = characters.find(c => c.id === selectedCharId);
 
-            // Synchroniser les informations du document de la table depuis Firestore
-            useEffect(() => {
-                if (!currentTable) return;
-                const unsubscribe = db.collection("tables").doc(currentTable).onSnapshot((doc) => {
-                    if (doc.exists && doc.data() && doc.data().name) {
-                        setTableName(doc.data().name);
-                    } else {
-                        // S'il n'y a pas de nom défini en BDD, on met Calice par défaut pour SPL4SH ou "Table [CODE]"
-                        setTableName(currentTable === "SPL4SH" ? "Calice" : `Table ${currentTable}`);
-                    }
-                }, (err) => {
-                    console.error("Erreur lecture table :", err);
-                    setTableName(`Table ${currentTable}`);
-                });
-
-                return () => unsubscribe();
-            }, [currentTable]);
-
             const charsRef = useMemo(() => {
                 return db.collection("tables").doc(currentTable).collection("characters");
             }, [currentTable]);
 
-            const handleSelectTable = async (tableCode, customName) => {
+            const handleSelectTable = (tableCode, customName) => {
                 const upperCode = tableCode.toUpperCase();
                 const nameToSave = customName || (upperCode === "SPL4SH" ? "Calice" : `Table ${upperCode}`);
-
-                try {
-                    await db.collection("tables").doc(upperCode).set({
-                        name: nameToSave,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
-                } catch (err) {
-                    console.error("Erreur enregistrement nom table :", err);
-                }
 
                 setCurrentTable(upperCode);
                 setTableName(nameToSave);
                 localStorage.setItem('cof2_current_table', upperCode);
+                localStorage.setItem(`cof2_table_name_${upperCode}`, nameToSave);
                 
                 const newUrl = `${window.location.pathname}?table=${upperCode}`;
                 window.history.pushState({ path: newUrl }, '', newUrl);
                 setShowTableModal(false);
             };
 
-            // Suppression complète de la table et de sa sous-collection dans Firestore
+            // Suppression propre des personnages de la sous-collection active
             const handleDeleteTable = async () => {
                 try {
-                    // 1. Supprimer tous les personnages de la sous-collection
                     const snapshot = await charsRef.get();
                     const batch = db.batch();
                     snapshot.docs.forEach(doc => {
@@ -515,10 +493,10 @@
                     });
                     await batch.commit();
 
-                    // 2. Supprimer le document principal de la table
-                    await db.collection("tables").doc(currentTable).delete();
+                    // Nettoyer le stockage local de cette table
+                    localStorage.removeItem(`cof2_table_name_${currentTable}`);
 
-                    // 3. Réinitialiser vers la table par défaut SPL4SH
+                    // Basculer par défaut sur SPL4SH
                     handleSelectTable("SPL4SH", "Calice");
                     setView('list');
                 } catch (err) {
@@ -659,10 +637,10 @@
                         </div>
                     </header>
 
-                    <main className="p-4 max-w-5xl mx-auto">
+                    <main className="p-4 max-w-5xl mx-auto characters-container">
                         {characters.length === 0 ? (
                             <div className="text-center py-20 text-gray-500">
-                                <Icons.User size={48} className="mx-auto mb-3 opacity-30" />
+                                <Icons.User size5={48} className="mx-auto mb-3 opacity-30" />
                                 <p className="text-lg">Aucun personnage enregistré dans la table <span className="font-bold text-blue-400">{tableName}</span> (<span className="font-mono">{currentTable}</span>).</p>
                                 <p className="text-sm text-gray-600 mt-1">Clique sur « Nouveau » pour commencer.</p>
                             </div>
@@ -683,7 +661,7 @@
                     {showTableModal && (
                         <TableModal
                             currentTable={currentTable}
-                            currentTableName={tableName}
+                    currentTableName={tableName}
                             onSelectTable={handleSelectTable}
                             onClose={() => setShowTableModal(false)}
                         />
